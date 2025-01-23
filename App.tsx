@@ -3,7 +3,7 @@ import React, {useEffect, useState} from "react";
 import {User} from "firebase/auth";
 import AuthView from "./views/AuthView";
 import {auth} from "./firebase.config";
-import FindParkingView from "./views/FindParkingView";
+import MainView from "./views/MainView";
 
 export default function App() {
     const [user, setUser] = useState<User | null>(null);
@@ -13,13 +13,16 @@ export default function App() {
         return () => unsubscribe();
     }, []);
 
+    function userAuthenticated() {
+        console.log('authenticated')
+    }
+
     return (
         <View style={styles.container}>
             {!user ? (
-                <AuthView onSignIn={() => {
-                }}/>
+                <AuthView onSignIn={userAuthenticated}/>
             ) : (
-                <FindParkingView/>
+                <MainView/>
             )}
         </View>
     );

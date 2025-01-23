@@ -4,7 +4,7 @@ import * as Location from 'expo-location';
 import MapView, {Marker, PROVIDER_DEFAULT} from "react-native-maps";
 
 
-export default function FindParkingView() {
+export default function MainView() {
     const [location, setLocation] = useState<{
         latitude: number | null;
         longitude: number | null;
@@ -30,8 +30,9 @@ export default function FindParkingView() {
 
     if (location.latitude === null || location.longitude === null) {
         return (
-            <View style={styles.container}>
+            <View style={styles.error}>
                 <Text>Fetching location...</Text>
+                {error && <Text>{error}</Text>}
             </View>
         );
     }
@@ -71,6 +72,11 @@ export default function FindParkingView() {
 }
 
 const styles = StyleSheet.create({
+    error: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
     container: {
         position: 'relative',
         flex: 1,
