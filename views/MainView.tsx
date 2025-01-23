@@ -1,12 +1,14 @@
 import {Button, Text, StyleSheet, View, Modal, TextInput} from "react-native";
 import React, {useEffect, useState} from "react";
-import {ref, push} from 'firebase/database';
+import {ref, push, onValue} from 'firebase/database';
+import {User} from "firebase/auth";
 import * as Location from 'expo-location';
-import MapView, {LongPressEvent, Marker, PROVIDER_DEFAULT} from "react-native-maps";
+import MapView, {LongPressEvent, MapCallout, Marker, PROVIDER_DEFAULT} from "react-native-maps";
 import {database} from "@/firebase.config";
 import {ParkingModel} from "@/domain/parking.model";
-import {User} from "firebase/auth";
 import {LocationSubscription} from "expo-location";
+import firebase from "firebase/compat";
+import Unsubscribe = firebase.Unsubscribe;
 
 
 export default function MainView(props: { user: User }) {
@@ -24,8 +26,9 @@ export default function MainView(props: { user: User }) {
     const [parkingTitle, setParkingTitle] = useState('');
     const [parkingDescription, setParkingDescription] = useState('');
     const [parkingCapacity, setParkingCapacity] = useState('');
-    const [loading, setLoading] = useState(true); // To show loading indicator
-    let locationSubscription:  LocationSubscription | null = null;
+    const [loading, setLoading] = useState(true);
+    let locationSubscription: LocationSubscription | null = null;
+    let parkingLotsUnsubscribe: Unsubscribe | null = null;
 
     async function createLocationSubscription() {
         return await Location.watchPositionAsync(
@@ -43,28 +46,47 @@ export default function MainView(props: { user: User }) {
         );
     }
 
-    function askForLocationPermission() {
-        (async () => {
-            try {
-                let {status} = await Location.requestForegroundPermissionsAsync();
-                if (status !== 'granted') {
-                    setError('Permission to access location was denied.');
-                    return;
-                }
-
-                locationSubscription = await createLocationSubscription();
-            } catch (err) {
-                setError(err.message);
+    async function askForLocationPermission() {
+        try {
+            let {status} = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') {
+                setError('Permission to access location was denied.');
+                return;
             }
-        })();
+
+            locationSubscription = await createLocationSubscription();
+        } catch (err) {
+            setError(err.message);
+        }
+    }
+
+    function subscribeToParkingLots() {
+        const parkingRef = ref(database, 'parkingLots/');
+
+        parkingLotsUnsubscribe = onValue(parkingRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                console.log(data)
+                const parkingLotsArray = Object.keys(data).map(key => ({
+                    id: key,
+                    ...data[key],
+                }));
+                setParkingLots(parkingLotsArray);
+            }
+        });
     }
 
     useEffect(() => {
-        askForLocationPermission();
+        askForLocationPermission()
+            .then(subscribeToParkingLots);
 
         return () => {
             if (locationSubscription) {
                 locationSubscription.remove();
+            }
+
+            if (parkingLotsUnsubscribe) {
+                parkingLotsUnsubscribe();
             }
         };
     }, []);
@@ -101,7 +123,7 @@ export default function MainView(props: { user: User }) {
     function createParking() {
         if (!parkingTitle)
             return;
-        const parkingRef = ref(database, 'parkings');
+        const parkingRef = ref(database, 'parkingLots');
 
         const parking: ParkingModel = {
             title: parkingTitle,
@@ -148,6 +170,25 @@ export default function MainView(props: { user: User }) {
                     }}
                     title="Nalazite se ovde!"
                 />
+
+                {parkingLots.map((parking) => (
+                    <Marker
+                        key={parking.id}
+                        coordinate={{
+                            latitude: parking.coordinates.latitude,
+                            longitude: parking.coordinates.longitude,
+                        }}
+                        title={parking.title}
+                    >
+                        <MapCallout>
+                            <View style={{ padding: 5 }}>
+                                <Text>{parking.title}</Text>
+                                <Text>{parking.description}</Text>
+                                <Text>Dostupnih mesta: {parking.capacity - parking.vehicles}</Text>
+                            </View>
+                        </MapCallout>
+                    </Marker>
+                ))}
             </MapView>
             <Modal
                 animationType="slide"
