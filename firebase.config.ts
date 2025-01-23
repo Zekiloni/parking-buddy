@@ -13,7 +13,8 @@ const firebaseConfig = {
     storageBucket: "parking-buddy-c74f7.firebasestorage.app",
     messagingSenderId: "729192685594",
     appId: "1:729192685594:web:d140a2aea49ffb12fd71a3",
-    measurementId: "G-5DY3C78KNP"
+    measurementId: "G-5DY3C78KNP",
+    databaseURL: "https://parking-buddy-c74f7-default-rtdb.europe-west1.firebasedatabase.app",
 };
 
 const app = initializeApp(firebaseConfig);

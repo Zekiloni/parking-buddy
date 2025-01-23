@@ -22,7 +22,7 @@ export default function App() {
             {!user ? (
                 <AuthView onSignIn={userAuthenticated}/>
             ) : (
-                <MainView/>
+                <MainView user={user}/>
             )}
         </View>
     );
