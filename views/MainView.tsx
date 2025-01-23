@@ -1,17 +1,20 @@
 import {Button, Text, StyleSheet, View, Modal, TextInput} from "react-native";
-import React, {useEffect, useState} from "react";
+import React, {useEffect, useRef, useState} from "react";
 import {ref, push, onValue} from 'firebase/database';
 import {User} from "firebase/auth";
 import * as Location from 'expo-location';
-import MapView, {LongPressEvent, MapCallout, Marker, PROVIDER_DEFAULT} from "react-native-maps";
+import MapView, {LongPressEvent, MapCallout, Marker, PROVIDER_DEFAULT, Region} from "react-native-maps";
 import {database} from "@/firebase.config";
 import {ParkingModel} from "@/domain/parking.model";
 import {LocationSubscription} from "expo-location";
 import firebase from "firebase/compat";
 import Unsubscribe = firebase.Unsubscribe;
+import {SvgUri} from 'react-native-svg';
 
 
 export default function MainView(props: { user: User }) {
+    const mapRef = useRef<MapView>(null);
+
     const [location, setLocation] = useState<{
         latitude: number | null;
         longitude: number | null;
@@ -148,6 +151,14 @@ export default function MainView(props: { user: User }) {
             });
     }
 
+    function navigateMeTo(parking: ParkingModel) {
+        console.log('navigated to,', parking);
+    }
+
+    function setRegion(newRegion: Region) {
+
+    }
+
     return (
         <View style={styles.container}>
             <MapView
@@ -161,6 +172,7 @@ export default function MainView(props: { user: User }) {
                     latitudeDelta: 0.01,
                     longitudeDelta: 0.01,
                 }}
+                onRegionChangeComplete={(newRegion) => setRegion(newRegion)}
                 onLongPress={(e) => showCreateParkingModal(e)}
             >
                 <Marker
@@ -174,6 +186,7 @@ export default function MainView(props: { user: User }) {
                 {parkingLots.map((parking) => (
                     <Marker
                         key={parking.id}
+                        pinColor="#1865bb"
                         coordinate={{
                             latitude: parking.coordinates.latitude,
                             longitude: parking.coordinates.longitude,
@@ -181,17 +194,21 @@ export default function MainView(props: { user: User }) {
                         title={parking.title}
                     >
                         <MapCallout>
-                            <View style={{ padding: 5 }}>
-                                <Text>{parking.title}</Text>
-                                <Text>{parking.description}</Text>
+                            <View style={{padding: 10}}>
+                                <Text>Ime: {parking.title}</Text>
+                                <Text>Opis: {parking.description}</Text>
                                 <Text>Dostupnih mesta: {parking.capacity - parking.vehicles}</Text>
+
+                                <View style={{marginTop: 5}}>
+                                    <Button title={"Navigiraj"} onPress={() => navigateMeTo(parking)}/>
+                                </View>
                             </View>
                         </MapCallout>
                     </Marker>
                 ))}
             </MapView>
             <Modal
-                animationType="slide"
+                animationType="fade"
                 transparent={true}
                 visible={createParkingModalVisible}
                 onRequestClose={() => setCreateParkingModalVisible(false)}
