@@ -57,6 +57,12 @@ export default function MainView(props: { user: User }) {
 
     useEffect(() => {
         askForLocationPermission();
+
+        return () => {
+            if (locationSubscription) {
+                locationSubscription.remove();
+            }
+        };
     }, []);
 
     if (location.latitude === null || location.longitude === null) {
