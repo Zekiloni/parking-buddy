@@ -1,10 +1,7 @@
 import {Button, Text, StyleSheet, View} from "react-native";
 import React, {useEffect, useState} from "react";
-import Geolocation from '@react-native-community/geolocation';
 import * as Location from 'expo-location';
 import MapView, {Marker, PROVIDER_DEFAULT} from "react-native-maps";
-import {PROVIDER_GOOGLE} from "react-native-maps/lib/ProviderConstants";
-import absoluteFillObject = StyleSheet.absoluteFillObject;
 
 
 export default function FindParkingView() {
@@ -66,9 +63,8 @@ export default function FindParkingView() {
                 />
             </MapView>
             <View style={styles.controls}>
-                <Button title={"Find parking"} style={styles.button} onPress={findParking}/>
-                <Button title={"Create parking"} style={styles.button} onPress={findParking}/>
-
+                <Button title={"Find parking"} onPress={findParking}/>
+                <Button title={"Create parking"} onPress={findParking}/>
             </View>
         </View>
     );
@@ -87,10 +83,11 @@ const styles = StyleSheet.create({
         ...StyleSheet.absoluteFillObject,
     },
     controls: {
+        width: '75%',
         position: 'absolute',
         bottom: 50,
-    },
-    button: {
-        width: 100,
+        backgroundColor: 'white',
+        padding: 15,
+        borderRadius: 15,
     },
 });
