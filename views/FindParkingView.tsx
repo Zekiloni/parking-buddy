@@ -2,29 +2,29 @@ import {Button, Text, StyleSheet, View} from "react-native";
 import React, {useEffect, useState} from "react";
 import Geolocation from '@react-native-community/geolocation';
 import * as Location from 'expo-location';
-import MapView, {Marker} from "react-native-maps";
+import MapView, {Marker, PROVIDER_DEFAULT} from "react-native-maps";
+import {PROVIDER_GOOGLE} from "react-native-maps/lib/ProviderConstants";
+import absoluteFillObject = StyleSheet.absoluteFillObject;
 
 
 export default function FindParkingView() {
     const [location, setLocation] = useState<{
         latitude: number | null;
         longitude: number | null;
-    }>({ latitude: null, longitude: null });
+    }>({latitude: null, longitude: null});
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         (async () => {
             try {
-                // Ask for location permissions
-                let { status } = await Location.requestForegroundPermissionsAsync();
+                let {status} = await Location.requestForegroundPermissionsAsync();
                 if (status !== 'granted') {
                     setError('Permission to access location was denied.');
                     return;
                 }
 
-                // Get the user's current position
-                const { coords } = await Location.getCurrentPositionAsync({});
-                setLocation({ latitude: coords.latitude, longitude: coords.longitude });
+                const {coords} = await Location.getCurrentPositionAsync({});
+                setLocation({latitude: coords.latitude, longitude: coords.longitude});
             } catch (err) {
                 setError(err.message);
             }
@@ -35,20 +35,20 @@ export default function FindParkingView() {
         return (
             <View style={styles.container}>
                 <Text>Fetching location...</Text>
-                {error && <Text style={styles.errorText}>{error}</Text>}
             </View>
         );
     }
 
+    function findParking() {
+
+    }
+
     return (
         <View style={styles.container}>
-            <Text>Current Location:</Text>
-            <Text>
-                Latitude: {location.latitude}, Longitude: {location.longitude}
-            </Text>
             <MapView
                 style={styles.map}
                 onMapReady={() => console.log('Map is ready')}
+                provider={PROVIDER_DEFAULT}
                 onError={(e) => console.error('Map error:', e.nativeEvent.error)}
                 initialRegion={{
                     latitude: location.latitude,
@@ -65,22 +65,32 @@ export default function FindParkingView() {
                     title="You are here!"
                 />
             </MapView>
+            <View style={styles.controls}>
+                <Button title={"Find parking"} style={styles.button} onPress={findParking}/>
+                <Button title={"Create parking"} style={styles.button} onPress={findParking}/>
+
+            </View>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
+        position: 'relative',
         flex: 1,
-        justifyContent: 'center',
         alignItems: 'center',
-    },
-    errorText: {
-        color: 'red',
-        marginTop: 10,
+        width: '100%',
+        height: '100%',
+        justifyContent: 'flex-end',
     },
     map: {
-        width: '100%',
-        height: '70%',
+        ...StyleSheet.absoluteFillObject,
+    },
+    controls: {
+        position: 'absolute',
+        bottom: 50,
+    },
+    button: {
+        width: 100,
     },
 });

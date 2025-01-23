@@ -24,6 +24,8 @@ auth.useDeviceLanguage();
 auth.setPersistence(getReactNativePersistence(ReactNativeAsyncStorage))
     .then(r => console.log(r));
 
+
+
 const analytics = getAnalytics(app);
 
 const storage = getStorage(app);
