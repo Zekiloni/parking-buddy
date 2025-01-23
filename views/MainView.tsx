@@ -27,6 +27,22 @@ export default function MainView(props: { user: User }) {
     const [loading, setLoading] = useState(true); // To show loading indicator
     let locationSubscription:  LocationSubscription | null = null;
 
+    async function createLocationSubscription() {
+        return await Location.watchPositionAsync(
+            {
+                accuracy: Location.Accuracy.High,
+                timeInterval: 1000,
+                distanceInterval: 1
+            },
+            (newLocation) => {
+                setLocation({
+                    latitude: newLocation.coords.latitude,
+                    longitude: newLocation.coords.longitude,
+                });
+            }
+        );
+    }
+
     function askForLocationPermission() {
         (async () => {
             try {
@@ -36,19 +52,7 @@ export default function MainView(props: { user: User }) {
                     return;
                 }
 
-                locationSubscription = await Location.watchPositionAsync(
-                    {
-                        accuracy: Location.Accuracy.High,
-                        timeInterval: 1000,
-                        distanceInterval: 1
-                    },
-                    (newLocation) => {
-                        setLocation({
-                            latitude: newLocation.coords.latitude,
-                            longitude: newLocation.coords.longitude,
-                        });
-                    }
-                );
+                locationSubscription = await createLocationSubscription();
             } catch (err) {
                 setError(err.message);
             }
