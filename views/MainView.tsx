@@ -1,4 +1,4 @@
-import {Button, Text, StyleSheet, View, Modal, TextInput} from "react-native";
+import {Button, Text, StyleSheet, View, Modal, TextInput, FlatList} from "react-native";
 import React, {useEffect, useRef, useState} from "react";
 import {ref, push, onValue, update} from 'firebase/database';
 import {User} from "firebase/auth";
@@ -9,20 +9,20 @@ import {ParkingModel} from "@/domain/parking.model";
 import {LocationSubscription} from "expo-location";
 import firebase from "firebase/compat";
 import Unsubscribe = firebase.Unsubscribe;
+import {LatLng} from "react-native-maps/lib/sharedTypes";
 
 
 export default function MainView(props: { user: User }) {
     const mapRef = useRef<MapView>(null);
 
-    const [location, setLocation] = useState<{
-        latitude: number | null;
-        longitude: number | null;
-    }>({latitude: null, longitude: null});
+    const [location, setLocation] = useState<LatLng | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [parkingLots, setParkingLots] = useState<ParkingModel[]>([]);
     const [createParkingModalVisible, setCreateParkingModalVisible] = useState(false);
     const [parkingLogInfoModalVisible, setParkingLotInfoModalVisible] = useState(false);
     const [selectedParkingLot, setSelectedParkingLot] = useState<ParkingModel | null>(null);
+    const [findParkingModalVisible, setFindParkingModalVisible] = useState(false);
+    const [nearbyParkingLots, setNearbyParkingLots] = useState<ParkingModel[]>([]);
     const [parkingLocation, setParkingLocation] = useState<{
         latitude: number | null;
         longitude: number | null;
@@ -94,7 +94,7 @@ export default function MainView(props: { user: User }) {
         };
     }, []);
 
-    if (location.latitude === null || location.longitude === null) {
+    if (location === null) {
         return (
             <View style={styles.error}>
                 <Text>Fetching location...</Text>
@@ -104,7 +104,18 @@ export default function MainView(props: { user: User }) {
     }
 
     function findParking() {
+        const availableParkingLots = parkingLots
+            .filter(parking => parking.capacity > parking.vehicles)
+            .map(parking => ({
+                ...parking,
+                distance: calculateDistance(location!, parking.coordinates),
+            }))
+            .sort((a, b) => a.distance - b.distance)
+            .slice(0, 4);
 
+        setNearbyParkingLots(availableParkingLots);
+
+        setFindParkingModalVisible(true);
     }
 
     function showCreateParkingModal(e: LongPressEvent) {
@@ -181,7 +192,37 @@ export default function MainView(props: { user: User }) {
             .catch((error) => console.error("Error releasing spot:", error));
     }
 
+
+    const calculateDistance = (target: LatLng, destination: LatLng) => {
+        const toRadians = (degrees: number): number => degrees * (Math.PI / 180);
+
+        const earthRadiusKm = 6371; // Radius of the Earth in kilometers
+
+        const dLat = toRadians(destination.latitude - target.latitude);
+        const dLon = toRadians(destination.longitude - target.longitude);
+
+        const lat1 = toRadians(target.latitude);
+        const lat2 = toRadians(destination.latitude);
+
+        const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2);
+
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        return earthRadiusKm * c;
+    }
+
+    const renderParkingLotItem = ({ item }) => (
+        <View style={styles.parkingLot}>
+            <Text>{item.title}</Text>
+            <Text>{item.capacity - item.vehicles} slobodnih mesta</Text>
+            <Text>{item.distance.toFixed(2)}km</Text>
+        </View>
+    );
+
     return (
+
         <View style={styles.container}>
             <MapView
                 style={styles.map}
@@ -196,13 +237,13 @@ export default function MainView(props: { user: User }) {
                 }}
                 onLongPress={(e) => showCreateParkingModal(e)}
             >
-                <Marker
-                    coordinate={{
-                        latitude: location.latitude,
-                        longitude: location.longitude,
-                    }}
-                    title="Nalazite se ovde!"
-                />
+                    <Marker
+                        coordinate={{
+                            latitude: location.latitude,
+                            longitude: location.longitude,
+                        }}
+                        title="Nalazite se ovde!"
+                    />
 
                 {parkingLots.map((parking) => (
                     <Marker
@@ -266,15 +307,34 @@ export default function MainView(props: { user: User }) {
                         <Text>Opis: {selectedParkingLot?.description || 'Nema'}</Text>
                         <Text>Dostupnih mesta: {selectedParkingLot?.capacity - selectedParkingLot?.vehicles}</Text>
 
-                        <Button title="Navigiraj" onPress={() => navigateMeTo(selectedParkingLot!)} />
+                        <Button title="Navigiraj" onPress={() => navigateMeTo(selectedParkingLot!)}/>
                         {selectedParkingLot && selectedParkingLot.authorId === props.user.uid && (
                             <View style={styles.parkingOptions}>
-                                <Button title="Zauzmi mesto" onPress={() => reserveSpot(selectedParkingLot!)} />
-                                <Button title="Oslobodi mesto" onPress={() => releaseSpot(selectedParkingLot!)} />
+                                <Button title="Zauzmi mesto" onPress={() => reserveSpot(selectedParkingLot!)}/>
+                                <Button title="Oslobodi mesto" onPress={() => releaseSpot(selectedParkingLot!)}/>
                             </View>
                         )}
 
-                        <Button title="Zatvori" onPress={() => setParkingLotInfoModalVisible(false)} />
+                        <Button title="Zatvori" onPress={() => setParkingLotInfoModalVisible(false)}/>
+                    </View>
+                </View>
+            </Modal>
+
+            <Modal
+                animationType="fade"
+                transparent={true}
+                visible={findParkingModalVisible}
+                onRequestClose={() => setFindParkingModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text>Slobodna parking mesta u blizini {nearbyParkingLots.length}</Text>
+                        <FlatList
+                            data={nearbyParkingLots}
+                            keyExtractor={(item) => item.id}
+                            renderItem={renderParkingLotItem}
+                        />
+                        <Button title="Zatvori" onPress={() => setFindParkingModalVisible(false)}/>
                     </View>
                 </View>
             </Modal>
@@ -341,5 +401,13 @@ const styles = StyleSheet.create({
         display: 'flex',
         flexDirection: 'row',
         justifyContent: 'space-between',
-    }
+    },
+    parkingLot: {
+        padding: 16,
+        marginVertical: 8,
+        backgroundColor: '#f9f9f9',
+        borderRadius: 8,
+        borderColor: '#ddd',
+        borderWidth: 1,
+    },
 });
