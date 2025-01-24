@@ -1,15 +1,14 @@
 import {Button, Text, StyleSheet, View, Modal, TextInput} from "react-native";
 import React, {useEffect, useRef, useState} from "react";
-import {ref, push, onValue} from 'firebase/database';
+import {ref, push, onValue, update} from 'firebase/database';
 import {User} from "firebase/auth";
 import * as Location from 'expo-location';
-import MapView, {LongPressEvent, MapCallout, Marker, PROVIDER_DEFAULT, Region} from "react-native-maps";
+import MapView, {LongPressEvent, Marker, PROVIDER_DEFAULT} from "react-native-maps";
 import {database} from "@/firebase.config";
 import {ParkingModel} from "@/domain/parking.model";
 import {LocationSubscription} from "expo-location";
 import firebase from "firebase/compat";
 import Unsubscribe = firebase.Unsubscribe;
-import {SvgUri} from 'react-native-svg';
 
 
 export default function MainView(props: { user: User }) {
@@ -22,6 +21,8 @@ export default function MainView(props: { user: User }) {
     const [error, setError] = useState<string | null>(null);
     const [parkingLots, setParkingLots] = useState<ParkingModel[]>([]);
     const [createParkingModalVisible, setCreateParkingModalVisible] = useState(false);
+    const [parkingLogInfoModalVisible, setParkingLotInfoModalVisible] = useState(false);
+    const [selectedParkingLot, setSelectedParkingLot] = useState<ParkingModel | null>(null);
     const [parkingLocation, setParkingLocation] = useState<{
         latitude: number | null;
         longitude: number | null;
@@ -29,7 +30,6 @@ export default function MainView(props: { user: User }) {
     const [parkingTitle, setParkingTitle] = useState('');
     const [parkingDescription, setParkingDescription] = useState('');
     const [parkingCapacity, setParkingCapacity] = useState('');
-    const [loading, setLoading] = useState(true);
     let locationSubscription: LocationSubscription | null = null;
     let parkingLotsUnsubscribe: Unsubscribe | null = null;
 
@@ -155,8 +155,30 @@ export default function MainView(props: { user: User }) {
         console.log('navigated to,', parking);
     }
 
-    function setRegion(newRegion: Region) {
+    function reserveSpot(selectedParkingLot: ParkingModel) {
+        if (selectedParkingLot.vehicles < selectedParkingLot.capacity) {
+            selectedParkingLot.vehicles += 1;
+            updateParkingLot(selectedParkingLot);
+        } else {
+            console.log("No available spots to reserve!");
+        }
+    }
 
+    function releaseSpot(selectedParkingLot: ParkingModel) {
+        if (selectedParkingLot.vehicles > 0) {
+            selectedParkingLot.vehicles -= 1;
+            updateParkingLot(selectedParkingLot);
+        } else {
+            console.log("No vehicles to release!");
+        }
+    }
+
+    function updateParkingLot(parking: ParkingModel) {
+        const parkingRef = ref(database, `parkingLots/${parking.id}`);
+
+        update(parkingRef, parking)
+            .then(() => console.log("Spot released successfully in Firebase."))
+            .catch((error) => console.error("Error releasing spot:", error));
     }
 
     return (
@@ -172,7 +194,6 @@ export default function MainView(props: { user: User }) {
                     latitudeDelta: 0.01,
                     longitudeDelta: 0.01,
                 }}
-                onRegionChangeComplete={(newRegion) => setRegion(newRegion)}
                 onLongPress={(e) => showCreateParkingModal(e)}
             >
                 <Marker
@@ -192,18 +213,11 @@ export default function MainView(props: { user: User }) {
                             longitude: parking.coordinates.longitude,
                         }}
                         title={parking.title}
+                        onPress={() => {
+                            setSelectedParkingLot(parking);
+                            setParkingLotInfoModalVisible(true);
+                        }}
                     >
-                        <MapCallout>
-                            <View style={{padding: 10}}>
-                                <Text>Ime: {parking.title}</Text>
-                                <Text>Opis: {parking.description}</Text>
-                                <Text>Dostupnih mesta: {parking.capacity - parking.vehicles}</Text>
-
-                                <View style={{marginTop: 5}}>
-                                    <Button title={"Navigiraj"} onPress={() => navigateMeTo(parking)}/>
-                                </View>
-                            </View>
-                        </MapCallout>
                     </Marker>
                 ))}
             </MapView>
@@ -240,6 +254,31 @@ export default function MainView(props: { user: User }) {
                     </View>
                 </View>
             </Modal>
+            <Modal
+                animationType="fade"
+                transparent={true}
+                visible={parkingLogInfoModalVisible}
+                onRequestClose={() => setParkingLotInfoModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text>Ime: {selectedParkingLot?.title}</Text>
+                        <Text>Opis: {selectedParkingLot?.description || 'Nema'}</Text>
+                        <Text>Dostupnih mesta: {selectedParkingLot?.capacity - selectedParkingLot?.vehicles}</Text>
+
+                        <Button title="Navigiraj" onPress={() => navigateMeTo(selectedParkingLot!)} />
+                        {selectedParkingLot && selectedParkingLot.authorId === props.user.uid && (
+                            <View style={styles.parkingOptions}>
+                                <Button title="Zauzmi mesto" onPress={() => reserveSpot(selectedParkingLot!)} />
+                                <Button title="Oslobodi mesto" onPress={() => releaseSpot(selectedParkingLot!)} />
+                            </View>
+                        )}
+
+                        <Button title="Zatvori" onPress={() => setParkingLotInfoModalVisible(false)} />
+                    </View>
+                </View>
+            </Modal>
+
             <View style={styles.controls}>
                 <Button title={"Pronadji parking"} onPress={findParking}/>
             </View>
@@ -276,7 +315,7 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.5)', // Semi-transparent background
+        backgroundColor: 'rgba(0,0,0,0.5)',
     },
     modalContent: {
         width: '80%',
@@ -298,4 +337,9 @@ const styles = StyleSheet.create({
         borderColor: '#ccc',
         borderRadius: 5,
     },
+    parkingOptions: {
+        display: 'flex',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+    }
 });

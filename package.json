@@ -21,7 +21,8 @@
     "react-native": "0.76.6",
     "react-native-maps": "^1.18.0",
     "react-native-svg": "^15.11.1",
-    "react-native-web": "~0.19.13"
+    "react-native-web": "~0.19.13",
+    "expo-updates": "~0.26.13"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
